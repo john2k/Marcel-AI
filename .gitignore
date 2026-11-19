@@ -1,0 +1,34 @@
+# Environment Variables & Secrets
+.env
+*.key
+*.pem
+id_rsa
+id_ed25519
+
+# Large files & ISOs
+*.iso
+*.img
+*.vmdk
+*.qcow2
+*.raw
+*.tar
+*.tar.gz
+*.zip
+
+# Temporary screen dumps & debug artifacts
+*.ppm
+screen*.png
+screen*.ppm
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.class
+*.log
+.venv/
+venv/
+.pytest_cache/
+
+# OS specific
+.DS_Store
+Thumbs.db
