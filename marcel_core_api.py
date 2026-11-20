@@ -2,6 +2,7 @@ import os
 import re
 import io
 import json
+import time
 import uuid
 import hashlib
 import zipfile
@@ -248,7 +249,12 @@ def list_downloads():
 @app.route("/api/downloads/clear", methods=["POST"])
 def clear_downloads():
     global downloads
-    downloads = [d for d in downloads if "en cours" in d.get("status", "").lower() or "démarrage" in d.get("status", "").lower()]
+    data = request.json or {}
+    clear_all = data.get("all", False)
+    if clear_all:
+        downloads = []
+    else:
+        downloads = [d for d in downloads if "en cours" in d.get("status", "").lower() or "démarrage" in d.get("status", "").lower()]
     return jsonify({"success": True, "remaining": len(downloads)})
 
 @app.route("/api/civitai_token", methods=["GET", "POST"])
@@ -575,6 +581,169 @@ def restart_service():
     
     out = run_bash(cmd)
     return jsonify({"success": True, "output": out})
+
+@app.route("/api/logs/clear", methods=["POST"])
+def clear_service_logs():
+    data = request.json or {}
+    category = data.get("category", "all").lower()
+    
+    actions_taken = []
+    
+    if category in ["chat", "all"]:
+        run_bash("truncate -s 0 $(docker inspect --format='{{.LogPath}}' open-webui 2>/dev/null) 2>/dev/null")
+        run_bash("journalctl -u ollama --rotate 2>/dev/null && journalctl -u ollama --vacuum-time=1s 2>/dev/null")
+        actions_taken.append("Logs Chat & Ollama réinitialisés")
+        
+    if category in ["image", "all"]:
+        run_bash("journalctl -u fooocus --rotate 2>/dev/null && journalctl -u fooocus --vacuum-time=1s 2>/dev/null")
+        run_bash("journalctl -u comfyui --rotate 2>/dev/null && journalctl -u comfyui --vacuum-time=1s 2>/dev/null")
+        actions_taken.append("Logs Fooocus & ComfyUI réinitialisés")
+        
+    if category in ["voix", "all"]:
+        run_bash("truncate -s 0 $(docker inspect --format='{{.LogPath}}' kokoro-tts 2>/dev/null) 2>/dev/null")
+        actions_taken.append("Logs Kokoro-TTS réinitialisés")
+        
+    if category in ["code", "all"]:
+        run_bash("journalctl -u ollama --rotate 2>/dev/null && journalctl -u ollama --vacuum-time=1s 2>/dev/null")
+        actions_taken.append("Logs Moteur Vibe Coder réinitialisés")
+        
+    if category in ["model", "all"]:
+        global downloads
+        downloads = [d for d in downloads if "en cours" in d.get("status", "").lower() or "démarrage" in d.get("status", "").lower()]
+        actions_taken.append("Historique et erreurs de téléchargement vidés")
+        
+    return jsonify({
+        "success": True,
+        "category": category,
+        "actions_taken": actions_taken,
+        "message": "Logs effacés avec succès !"
+    })
+
+@app.route("/api/system/stats", methods=["GET"])
+def get_system_stats():
+    # 1. CPU Load
+    cpu_percent = 0.0
+    try:
+        with open('/proc/stat') as f:
+            stat1 = [float(x) for x in f.readline().split()[1:]]
+        time.sleep(0.08)
+        with open('/proc/stat') as f:
+            stat2 = [float(x) for x in f.readline().split()[1:]]
+        d_total = sum(stat2) - sum(stat1)
+        d_idle = (stat2[3] + stat2[4]) - (stat1[3] + stat1[4])
+        cpu_percent = round((1.0 - d_idle / d_total) * 100, 1) if d_total > 0 else 0.0
+    except:
+        pass
+
+    # 2. CPU Temp
+    cpu_temp = None
+    for path in ['/sys/class/hwmon/hwmon1/temp2_input', '/sys/class/hwmon/hwmon4/temp1_input', '/sys/class/hwmon/hwmon1/temp1_input']:
+        if os.path.exists(path):
+            try:
+                cpu_temp = round(int(open(path).read().strip()) / 1000.0, 1)
+                break
+            except:
+                pass
+
+    # 3. RAM
+    meminfo = {}
+    try:
+        for line in open('/proc/meminfo'):
+            parts = line.split(':')
+            if len(parts) == 2:
+                meminfo[parts[0].strip()] = int(parts[1].split()[0])
+    except:
+        pass
+    ram_total_gb = round(meminfo.get('MemTotal', 0) / (1024**2), 1)
+    ram_avail_gb = round(meminfo.get('MemAvailable', 0) / (1024**2), 1)
+    ram_used_gb = round(ram_total_gb - ram_avail_gb, 1)
+    ram_percent = round((ram_used_gb / ram_total_gb) * 100, 1) if ram_total_gb > 0 else 0.0
+
+    # 4. GPU (Radeon RX 5600 XT)
+    gpu_temp = None
+    for path in ['/sys/class/hwmon/hwmon5/temp1_input', '/sys/class/hwmon/hwmon5/temp2_input']:
+        if os.path.exists(path):
+            try:
+                gpu_temp = round(int(open(path).read().strip()) / 1000.0, 1)
+                break
+            except:
+                pass
+
+    vram_used_gb = 0.0
+    vram_total_gb = 5.98
+    gpu_busy = 0
+    if os.path.exists('/sys/class/drm/card1/device/mem_info_vram_used'):
+        try:
+            vram_used_gb = round(int(open('/sys/class/drm/card1/device/mem_info_vram_used').read().strip()) / (1024**3), 2)
+            vram_total_gb = round(int(open('/sys/class/drm/card1/device/mem_info_vram_total').read().strip()) / (1024**3), 2)
+        except:
+            pass
+    if os.path.exists('/sys/class/drm/card1/device/gpu_busy_percent'):
+        try:
+            gpu_busy = int(open('/sys/class/drm/card1/device/gpu_busy_percent').read().strip())
+        except:
+            pass
+
+    # 5. Activity Status ("voir si un truc tourne ou pas")
+    active_tasks = []
+    # Check Ollama
+    try:
+        r = requests.get('http://127.0.0.1:11434/api/ps', timeout=1)
+        if r.status_code == 200:
+            models = r.json().get('models', [])
+            if models:
+                m_names = [m.get('name', 'Modèle') for m in models]
+                active_tasks.append(f"Inférence LLM ({', '.join(m_names)})")
+    except:
+        pass
+
+    # Check downloads
+    dl_active = [d for d in downloads if "en cours" in d.get("status", "").lower() or "démarrage" in d.get("status", "").lower()]
+    if dl_active:
+        active_tasks.append(f"Téléchargement ({len(dl_active)} en cours)")
+
+    # Check Fooocus process / activity
+    try:
+        r = subprocess.run(['pgrep', '-f', 'entry_with_update.py'], capture_output=True, text=True)
+        if r.returncode == 0 and gpu_busy > 10:
+            active_tasks.append("Rendu SDXL (Fooocus actif)")
+    except:
+        pass
+
+    is_running = len(active_tasks) > 0 or gpu_busy > 15 or cpu_percent > 45
+    if active_tasks:
+        status_summary = "En action : " + " & ".join(active_tasks)
+    elif is_running:
+        status_summary = "En action (Calcul intensif)"
+    else:
+        status_summary = "En veille (Système prêt)"
+
+    return jsonify({
+        "cpu": {
+            "name": "AMD Ryzen 7 2700X",
+            "percent": cpu_percent,
+            "temp": cpu_temp
+        },
+        "ram": {
+            "used_gb": ram_used_gb,
+            "total_gb": ram_total_gb,
+            "avail_gb": ram_avail_gb,
+            "percent": ram_percent
+        },
+        "gpu": {
+            "name": "AMD Radeon RX 5600 XT",
+            "percent": gpu_busy,
+            "temp": gpu_temp,
+            "vram_used_gb": vram_used_gb,
+            "vram_total_gb": vram_total_gb,
+            "vram_percent": round((vram_used_gb / vram_total_gb) * 100, 1) if vram_total_gb > 0 else 0.0
+        },
+        "activity": {
+            "is_busy": is_running,
+            "status": status_summary,
+            "active_tasks": active_tasks
+        }
+    })
 
 # --- 3. VIBE CODER (ANTIGRAVITY STYLE) LOGIC ---
 

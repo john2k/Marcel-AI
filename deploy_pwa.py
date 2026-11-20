@@ -816,6 +816,181 @@ html_content = r"""<!DOCTYPE html>
             gap: 8px;
             margin-top: 8px;
         }
+
+        /* --- HARDWARE HUD & STATS --- */
+        .hud-section {
+            margin-top: 20px;
+            margin-bottom: 24px;
+        }
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .hud-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .hud-live-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            color: #10b981;
+            font-weight: 700;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 3px 8px;
+            border-radius: 20px;
+        }
+        .pulse-dot {
+            width: 7px;
+            height: 7px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse 1.5s infinite;
+        }
+        .hud-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 12px;
+        }
+        .hud-card {
+            background: rgba(16, 19, 30, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 14px 16px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s ease;
+        }
+        .hud-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+        .hud-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .hud-card-name {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+        .hud-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+        }
+        .hud-badge.temp {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .hud-badge.status-idle {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .hud-badge.status-busy {
+            background: rgba(236, 72, 153, 0.2);
+            color: #f472b6;
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            animation: pulse 1s infinite;
+        }
+        .hud-card-val {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+        .hud-progress-bg {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .hud-progress-bar {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #6366f1, #818cf8);
+            transition: width 0.4s ease;
+        }
+        .hud-progress-bar.bar-gpu {
+            background: linear-gradient(90deg, #ec4899, #f43f5e);
+        }
+        .hud-progress-bar.bar-ram {
+            background: linear-gradient(90deg, #06b6d4, #3b82f6);
+        }
+        .hud-card-sub {
+            font-size: 0.72rem;
+            color: #64748b;
+        }
+        .hud-activity-card {
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            background: rgba(16, 26, 24, 0.85);
+        }
+        .hud-activity-text {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #34d399;
+            margin-bottom: 8px;
+            line-height: 1.35;
+            min-height: 2.7em;
+            display: flex;
+            align-items: center;
+        }
+
+        .hw-pill {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #cbd5e1;
+            transition: all 0.2s;
+        }
+        .hw-pill:hover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        .btn-clear-logs {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 7px 12px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-clear-logs:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fff;
+        }
     </style>
 </head>
 <body class="vibe-view-chat">
@@ -856,6 +1031,10 @@ html_content = r"""<!DOCTYPE html>
             </div>
         </div>
         <div class="app-actions">
+            <!-- Hardware Live Pill -->
+            <div class="hw-pill" id="topHwPill" onclick="switchTab('logs')" title="Surveillance Matériel en direct">
+                <span id="pillPulse">🟢</span> <span id="pillText">Matériel...</span>
+            </div>
             <!-- Pulsing Log Analyzer Button -->
             <button class="action-btn btn-pulse-log" id="btnPulseLog" onclick="switchTab('logs')">
                 <span id="logPulseDot">🟢</span> Logs & Santé
@@ -895,6 +1074,64 @@ html_content = r"""<!DOCTYPE html>
                         <button class="action-btn" style="background:#10b981; color:#fff;" onclick="switchTab('logs')">
                             📊 Logs & Analyseur IA
                         </button>
+                    </div>
+                </div>
+
+                <!-- LIVE HARDWARE & ACTIVITY MONITOR HUD -->
+                <div class="hud-section">
+                    <div class="hud-header">
+                        <div class="hud-title">⚡ Surveillance Matériel & Activité en Direct</div>
+                        <div class="hud-live-tag"><span class="pulse-dot"></span> TEMPS RÉEL (3s)</div>
+                    </div>
+                    <div class="hud-grid">
+                        <!-- CPU CARD -->
+                        <div class="hud-card" onclick="switchTab('logs')" style="cursor:pointer;">
+                            <div class="hud-card-top">
+                                <span class="hud-card-name">⚡ CPU Ryzen 2700X</span>
+                                <span class="hud-badge temp" id="hudCpuTemp">--.- °C</span>
+                            </div>
+                            <div class="hud-card-val" id="hudCpuLoad">0.0 %</div>
+                            <div class="hud-progress-bg">
+                                <div class="hud-progress-bar" id="hudCpuBar" style="width: 0%;"></div>
+                            </div>
+                            <div class="hud-card-sub" id="hudCpuSub">8 Cœurs / 16 Threads</div>
+                        </div>
+
+                        <!-- GPU CARD -->
+                        <div class="hud-card" onclick="switchTab('logs')" style="cursor:pointer;">
+                            <div class="hud-card-top">
+                                <span class="hud-card-name">🎮 GPU RX 5600 XT</span>
+                                <span class="hud-badge temp" id="hudGpuTemp">--.- °C</span>
+                            </div>
+                            <div class="hud-card-val" id="hudGpuVram">-- / 6.0 Go</div>
+                            <div class="hud-progress-bg">
+                                <div class="hud-progress-bar bar-gpu" id="hudGpuBar" style="width: 0%;"></div>
+                            </div>
+                            <div class="hud-card-sub" id="hudGpuSub">Activité GPU : 0% | VRAM : 0%</div>
+                        </div>
+
+                        <!-- RAM CARD -->
+                        <div class="hud-card" onclick="switchTab('logs')" style="cursor:pointer;">
+                            <div class="hud-card-top">
+                                <span class="hud-card-name">🧠 RAM Serveur</span>
+                                <span class="hud-badge" id="hudRamPercent">0%</span>
+                            </div>
+                            <div class="hud-card-val" id="hudRamVal">-- / 56.0 Go</div>
+                            <div class="hud-progress-bg">
+                                <div class="hud-progress-bar bar-ram" id="hudRamBar" style="width: 0%;"></div>
+                            </div>
+                            <div class="hud-card-sub" id="hudRamSub">Mémoire DDR4</div>
+                        </div>
+
+                        <!-- ACTIVITY STATUS CARD -->
+                        <div class="hud-card hud-activity-card" id="hudActivityCard" onclick="switchTab('logs')" style="cursor:pointer;">
+                            <div class="hud-card-top">
+                                <span class="hud-card-name">📡 État d'Activité</span>
+                                <span class="hud-badge status-idle" id="hudActivityBadge">En veille</span>
+                            </div>
+                            <div class="hud-activity-text" id="hudActivityText">Système prêt (Aucun calcul intensif)</div>
+                            <div class="hud-card-sub" id="hudActivitySub">Surveillance IA & Services</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1011,6 +1248,16 @@ html_content = r"""<!DOCTYPE html>
         <!-- VIEW 2: LOG ANALYZER & DIAGNOSTICS IA -->
         <div class="view-panel" id="view-logs">
             <div class="logs-container">
+                <!-- LIVE HARDWARE MINI HUD -->
+                <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:10px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:0.8rem;">
+                        <span>⚡ <strong>CPU :</strong> <span id="logCpuStatus" style="color:#fbbf24; font-family:'JetBrains Mono',monospace;">--.- °C</span> (<span id="logCpuLoad">0%</span>)</span>
+                        <span>🎮 <strong>GPU :</strong> <span id="logGpuStatus" style="color:#fbbf24; font-family:'JetBrains Mono',monospace;">--.- °C</span> (<span id="logGpuVram">VRAM -- Go</span>)</span>
+                        <span>🧠 <strong>RAM :</strong> <span id="logRamStatus" style="color:#38bdf8;">-- Go / -- Go</span></span>
+                    </div>
+                    <div style="font-size:0.75rem; font-weight:700;" id="logActivityStatus">🟢 En veille</div>
+                </div>
+
                 <!-- CATEGORY SELECTOR -->
                 <div class="logs-nav">
                     <button class="logs-cat-btn active" id="cat-chat" onclick="selectLogCat('chat')">💬 Chat & LLM</button>
@@ -1027,6 +1274,7 @@ html_content = r"""<!DOCTYPE html>
                         <p id="logServiceSub">Aucune erreur critique détectée.</p>
                     </div>
                     <div class="logs-actions">
+                        <button class="btn-clear-logs" id="btnClearLogs" onclick="clearCurrentLogs()">🧹 Effacer les logs</button>
                         <button class="btn-ai-autofix" id="btnAiAutofix" onclick="triggerAiAutoFix()">🪄 Réparer automatiquement avec l'IA</button>
                         <button class="btn-ai-diag" onclick="triggerAiDiagnostic()">🤖 Diagnostiquer</button>
                         <button class="btn-svc-restart" onclick="restartCurrentService()">🔄 Redémarrer ce service</button>
@@ -1100,7 +1348,7 @@ html_content = r"""<!DOCTYPE html>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
                         <h4 style="font-size:0.95rem; color:#fff;">Tâches de téléchargement</h4>
-                        <button type="button" class="action-btn" style="font-size:0.75rem;" onclick="clearDownloadTasks()">Effacer l'historique</button>
+                        <button type="button" class="btn-clear-logs" style="font-size:0.75rem;" onclick="clearDownloadTasks()">🧹 Effacer erreurs & historique</button>
                     </div>
                     <div id="tasksList" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
@@ -1549,6 +1797,121 @@ html_content = r"""<!DOCTYPE html>
             setTimeout(loadCurrentLogs, 2500);
         }
 
+        async function clearCurrentLogs() {
+            if (!confirm('Effacer les logs de la catégorie "' + currentLogCat + '" ?')) return;
+            try {
+                const res = await fetch('/api/logs/clear', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({ category: currentLogCat })
+                });
+                const data = await res.json();
+                const box = document.getElementById('terminalBox');
+                box.textContent = '🧹 Logs effacés avec succès !\n' + (data.actions_taken || []).join('\n') + '\n\nEn attente de nouveaux événements...';
+                setTimeout(loadCurrentLogs, 1500);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // Live Hardware & Activity Polling
+        async function pollSystemStats() {
+            try {
+                const res = await fetch('/api/system/stats', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
+                if (!res.ok) return;
+                const s = await res.json();
+                
+                // 1. CPU
+                const cpuTempEl = document.getElementById('hudCpuTemp');
+                const cpuLoadEl = document.getElementById('hudCpuLoad');
+                const cpuBarEl = document.getElementById('hudCpuBar');
+                const logCpuStatus = document.getElementById('logCpuStatus');
+                const logCpuLoad = document.getElementById('logCpuLoad');
+
+                if (s.cpu) {
+                    const tempStr = (s.cpu.temp !== null ? s.cpu.temp.toFixed(1) + ' °C' : '-- °C');
+                    if (cpuTempEl) cpuTempEl.textContent = tempStr;
+                    if (cpuLoadEl) cpuLoadEl.textContent = s.cpu.percent + ' %';
+                    if (cpuBarEl) cpuBarEl.style.width = Math.min(100, Math.max(0, s.cpu.percent)) + '%';
+                    if (logCpuStatus) logCpuStatus.textContent = tempStr;
+                    if (logCpuLoad) logCpuLoad.textContent = s.cpu.percent + ' %';
+                }
+
+                // 2. GPU
+                const gpuTempEl = document.getElementById('hudGpuTemp');
+                const gpuVramEl = document.getElementById('hudGpuVram');
+                const gpuBarEl = document.getElementById('hudGpuBar');
+                const gpuSubEl = document.getElementById('hudGpuSub');
+                const logGpuStatus = document.getElementById('logGpuStatus');
+                const logGpuVram = document.getElementById('logGpuVram');
+
+                if (s.gpu) {
+                    const gpuTempStr = (s.gpu.temp !== null ? s.gpu.temp.toFixed(1) + ' °C' : '-- °C');
+                    if (gpuTempEl) gpuTempEl.textContent = gpuTempStr;
+                    if (gpuVramEl) gpuVramEl.textContent = s.gpu.vram_used_gb.toFixed(1) + ' / ' + s.gpu.vram_total_gb.toFixed(1) + ' Go';
+                    if (gpuBarEl) gpuBarEl.style.width = Math.min(100, Math.max(0, s.gpu.vram_percent)) + '%';
+                    if (gpuSubEl) gpuSubEl.textContent = 'Activité GPU : ' + s.gpu.percent + '% | VRAM : ' + s.gpu.vram_percent + '%';
+                    if (logGpuStatus) logGpuStatus.textContent = gpuTempStr;
+                    if (logGpuVram) logGpuVram.textContent = 'VRAM ' + s.gpu.vram_used_gb.toFixed(1) + ' Go';
+                }
+
+                // 3. RAM
+                const ramValEl = document.getElementById('hudRamVal');
+                const ramPctEl = document.getElementById('hudRamPercent');
+                const ramBarEl = document.getElementById('hudRamBar');
+                const ramSubEl = document.getElementById('hudRamSub');
+                const logRamStatus = document.getElementById('logRamStatus');
+
+                if (s.ram) {
+                    if (ramValEl) ramValEl.textContent = s.ram.used_gb.toFixed(1) + ' / ' + s.ram.total_gb.toFixed(1) + ' Go';
+                    if (ramPctEl) ramPctEl.textContent = s.ram.percent + ' %';
+                    if (ramBarEl) ramBarEl.style.width = Math.min(100, Math.max(0, s.ram.percent)) + '%';
+                    if (ramSubEl) ramSubEl.textContent = 'Mémoire DDR4 (' + (s.ram.avail_gb || (s.ram.total_gb - s.ram.used_gb).toFixed(1)) + ' Go Libres)';
+                    if (logRamStatus) logRamStatus.textContent = s.ram.used_gb.toFixed(1) + ' Go / ' + s.ram.total_gb.toFixed(1) + ' Go';
+                }
+
+                // 4. Activity Status
+                const actBadge = document.getElementById('hudActivityBadge');
+                const actText = document.getElementById('hudActivityText');
+                const actCard = document.getElementById('hudActivityCard');
+                const logActivityStatus = document.getElementById('logActivityStatus');
+
+                if (s.activity) {
+                    const isBusy = Boolean(s.activity.is_busy);
+                    if (actBadge) {
+                        actBadge.className = isBusy ? 'hud-badge status-busy' : 'hud-badge status-idle';
+                        actBadge.textContent = isBusy ? '⚡ En action' : '🟢 En veille';
+                    }
+                    if (actText) actText.textContent = s.activity.status;
+                    if (actCard) actCard.style.borderColor = isBusy ? 'rgba(236, 72, 153, 0.5)' : 'rgba(16, 185, 129, 0.3)';
+                    if (logActivityStatus) {
+                        logActivityStatus.innerHTML = isBusy ? 
+                            '<span style="color:#ec4899; animation:pulse 1s infinite;">⚡ ' + escapeHtml(s.activity.status) + '</span>' : 
+                            '<span style="color:#34d399;">🟢 En veille</span>';
+                    }
+                }
+
+                // 5. Top Bar Pill
+                const topPill = document.getElementById('topHwPill');
+                const pillText = document.getElementById('pillText');
+                const pillPulse = document.getElementById('pillPulse');
+                if (topPill && s.cpu && s.gpu) {
+                    topPill.style.display = 'flex';
+                    const cT = s.cpu.temp !== null ? s.cpu.temp.toFixed(0) + '°C' : s.cpu.percent + '%';
+                    const gT = s.gpu.temp !== null ? s.gpu.temp.toFixed(0) + '°C' : s.gpu.percent + '%';
+                    pillText.textContent = 'CPU ' + cT + ' | GPU ' + gT;
+                    pillPulse.textContent = (s.activity && s.activity.is_busy) ? '⚡' : '🟢';
+                }
+            } catch (e) {}
+        }
+        setInterval(pollSystemStats, 3000);
+        setTimeout(pollSystemStats, 500);
+
         // Global Health Pulse Checker
         async function checkGlobalHealth() {
             try {
@@ -1571,6 +1934,23 @@ html_content = r"""<!DOCTYPE html>
         setInterval(checkGlobalHealth, 15000);
 
         // --- DOWNLOADER & CIVITAI KEY ---
+        async function clearDownloadTasks() {
+            try {
+                const res = await fetch('/api/downloads/clear', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({ all: true })
+                });
+                const data = await res.json();
+                pollDownloads();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
         async function loadCivitaiKey() {
             try {
                 const res = await fetch('/api/civitai_token', {
@@ -1629,11 +2009,47 @@ html_content = r"""<!DOCTYPE html>
                 });
                 const list = await res.json();
                 const container = document.getElementById('tasksList');
+                if (!container) return;
+                
+                if (list.length === 0) {
+                    container.innerHTML = '<div style="color:#64748b; font-size:0.85rem; padding:12px; text-align:center; background:rgba(255,255,255,0.02); border-radius:10px;">Aucun téléchargement en cours ou dans l\'historique.</div>';
+                    return;
+                }
+                
                 container.innerHTML = '';
                 list.slice().reverse().forEach(t => {
                     const el = document.createElement('div');
-                    el.style.cssText = 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px; font-size:0.8rem;';
-                    el.innerHTML = '<strong>[' + t.folder + '] ' + t.filename + '</strong><br><span style="color:' + (t.error ? '#ef4444' : '#34d399') + '">' + t.status + ' (' + t.progress + '%)</span>';
+                    const isError = Boolean(t.error);
+                    const isDone = t.progress >= 100 && !isError;
+                    
+                    const borderColor = isError ? 'rgba(239, 68, 68, 0.4)' : (isDone ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)');
+                    const bgColor = isError ? 'rgba(239, 68, 68, 0.05)' : (isDone ? 'rgba(16, 185, 129, 0.05)' : 'rgba(99, 102, 241, 0.05)');
+                    
+                    el.style.cssText = 'background:' + bgColor + '; border:1px solid ' + borderColor + '; border-radius:12px; padding:12px; font-size:0.82rem; margin-bottom:8px; display:flex; flex-direction:column; gap:6px;';
+                    
+                    let hint = '';
+                    const st = String(t.status || '');
+                    if (isError && (st.includes('403') || st.includes('Civitai') || st.includes('download-auth') || st.includes('login'))) {
+                        hint = '<div style="background:rgba(245, 158, 11, 0.15); border:1px solid rgba(245, 158, 11, 0.3); color:#fef08a; padding:6px 10px; border-radius:8px; font-size:0.75rem; margin-top:4px;">🔒 <strong>Civitai 403 :</strong> Ce modèle requiert une clé API Civitai. Enregistre ta clé dans le champ ci-dessus.</div>';
+                    } else if (isError && st.includes('404')) {
+                        hint = '<div style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.3); color:#fca5a5; padding:6px 10px; border-radius:8px; font-size:0.75rem; margin-top:4px;">⚠️ <strong>Lien 404 :</strong> Sur Hugging Face, ouvre l\'onglet "Files and versions" et copie le lien direct du fichier .safetensors.</div>';
+                    }
+
+                    const progressHtml = !isError && !isDone ? 
+                        '<div style="height:6px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; margin:4px 0;">' +
+                            '<div style="height:100%; width:' + t.progress + '%; background:linear-gradient(90deg, #6366f1, #ec4899); transition:width 0.3s ease;"></div>' +
+                        '</div>' : '';
+
+                    el.innerHTML = 
+                        '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
+                            '<span style="background:rgba(255,255,255,0.08); padding:3px 8px; border-radius:6px; font-family:\'JetBrains Mono\',monospace; font-size:0.72rem; color:#a5b4fc;">📁 ' + escapeHtml(t.folder) + '</span>' +
+                            '<span style="font-weight:700; color:' + (isError ? '#ef4444' : (isDone ? '#34d399' : '#818cf8')) + '; font-size:0.78rem;">' + (isError ? '❌ Erreur' : (isDone ? '✅ Terminé (100%)' : t.progress + '%')) + '</span>' +
+                        '</div>' +
+                        '<div style="font-weight:700; color:#fff; word-break:break-all; font-size:0.85rem; line-height:1.3;">' + escapeHtml(t.filename || 'Modèle') + '</div>' +
+                        progressHtml +
+                        '<div style="color:' + (isError ? '#fca5a5' : '#cbd5e1') + '; font-size:0.78rem; word-break:break-word;">' + escapeHtml(t.status) + '</div>' +
+                        hint;
+                    
                     container.appendChild(el);
                 });
             } catch (e) {}
@@ -1719,8 +2135,8 @@ with sftp.open("/tmp/index.html", "wb") as rf:
 ssh.exec_command("pct push 100 /tmp/index.html /var/www/html/index.html")
 
 # 4. UPDATE SW.JS (v5 to force refresh everywhere)
-sw_code = """// AI Studio Marcel Service Worker v5
-const CACHE_NAME = 'aistudio-shell-v6';
+sw_code = """// AI Studio Marcel Service Worker v8
+const CACHE_NAME = 'aistudio-shell-v8';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
