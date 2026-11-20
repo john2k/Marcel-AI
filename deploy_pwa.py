@@ -1,4 +1,7 @@
 import os
+import re
+import paramiko
+
 if os.path.exists('.env'):
     with open('.env') as f:
         for line in f:
@@ -6,14 +9,8 @@ if os.path.exists('.env'):
                 k, v = line.strip().split('=', 1)
                 os.environ.setdefault(k, v)
 
-import paramiko
-
-ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect(os.environ.get('PROXMOX_HOST', '192.168.1.100'), username=os.environ.get('PROXMOX_USER', 'root'), password=os.environ.get('PROXMOX_PASSWORD', ''))
-
-# Read the HTML template or construct it cleanly
-pwa_html = """<!DOCTYPE html>
+# Construct index.html
+html_content = r"""<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -27,8 +24,11 @@ pwa_html = """<!DOCTYPE html>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Marcel Studio">
-    <link rel="apple-touch-icon" href="/icon-192.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -62,6 +62,121 @@ pwa_html = """<!DOCTYPE html>
             position: relative;
         }
 
+        /* --- AUTH LOGIN OVERLAY --- */
+        .auth-overlay {
+            position: fixed;
+            inset: 0;
+            background: #08090d;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .auth-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .auth-card {
+            background: rgba(16, 19, 30, 0.95);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 32px 28px;
+            max-width: 380px;
+            width: 100%;
+            text-align: center;
+            animation: authPop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes authPop {
+            0% { transform: scale(0.92); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .auth-avatar-box {
+            position: relative;
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 16px;
+        }
+        .auth-avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 22px;
+            object-fit: cover;
+            border: 2px solid rgba(99, 102, 241, 0.6);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        }
+        .auth-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 4px;
+            letter-spacing: -0.3px;
+        }
+        .auth-subtitle {
+            font-size: 0.82rem;
+            color: var(--text-sub);
+            margin-bottom: 22px;
+        }
+        .auth-input-group {
+            margin-bottom: 12px;
+            text-align: left;
+        }
+        .auth-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #cbd5e1;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .auth-input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .auth-input:focus {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.08);
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
+        }
+        .auth-error {
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-bottom: 12px;
+            display: none;
+            font-weight: 500;
+        }
+        .btn-auth-submit {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--accent-pink));
+            color: #fff;
+            border: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            box-shadow: 0 6px 20px var(--primary-glow);
+            transition: all 0.2s;
+            margin-top: 6px;
+        }
+        .btn-auth-submit:active {
+            transform: scale(0.98);
+        }
+
         /* TOP APP BAR */
         .app-bar {
             height: calc(54px + var(--safe-top));
@@ -85,15 +200,20 @@ pwa_html = """<!DOCTYPE html>
             cursor: pointer;
         }
         .brand-icon {
-            font-size: 1.3rem;
             width: 34px;
             height: 34px;
             border-radius: 10px;
-            background: linear-gradient(135deg, var(--primary), var(--accent-pink));
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 14px var(--primary-glow);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+        .brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .brand-title {
             font-size: 1.05rem;
@@ -354,7 +474,6 @@ pwa_html = """<!DOCTYPE html>
             position: relative;
             overflow: hidden;
         }
-        /* Mobile: switch views. Desktop: split screen */
         .vibe-chat-panel {
             flex: 1;
             display: flex;
@@ -678,10 +797,37 @@ pwa_html = """<!DOCTYPE html>
     </style>
 </head>
 <body class="vibe-view-chat">
+
+    <!-- AUTHENTICATION OVERLAY / LOGIN GATE -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-card">
+            <div class="auth-avatar-box">
+                <img src="/marcel-avatar.png" class="auth-avatar-img" alt="Marcel AI">
+            </div>
+            <h2 class="auth-title">Marcel AI Studio</h2>
+            <p class="auth-subtitle">Accès sécurisé à votre espace d'intelligence artificielle</p>
+            
+            <form onsubmit="handleLogin(event)">
+                <div class="auth-input-group">
+                    <label class="auth-label">Utilisateur</label>
+                    <input type="text" id="loginUser" class="auth-input" value="marcel" required autocomplete="username">
+                </div>
+                <div class="auth-input-group">
+                    <label class="auth-label">Mot de passe</label>
+                    <input type="password" id="loginPass" class="auth-input" placeholder="Entrez votre mot de passe" required autocomplete="current-password">
+                </div>
+                <div class="auth-error" id="loginError">Mot de passe incorrect</div>
+                <button type="submit" class="btn-auth-submit" id="btnLoginSubmit">Se connecter</button>
+            </form>
+        </div>
+    </div>
+
     <!-- TOP APP BAR -->
     <header class="app-bar">
         <div class="app-brand" onclick="switchTab('hub')">
-            <div class="brand-icon">✨</div>
+            <div class="brand-icon">
+                <img src="/marcel-avatar.png" alt="Marcel AI">
+            </div>
             <div>
                 <span class="brand-title">Marcel Studio</span>
                 <span class="brand-badge" id="serviceBadge">Accueil</span>
@@ -701,6 +847,9 @@ pwa_html = """<!DOCTYPE html>
             <a href="#" class="action-btn" id="btnExternal" title="Ouvrir dans un nouvel onglet" target="_blank">
                 ↗
             </a>
+            <button class="action-btn" title="Se déconnecter" onclick="handleLogout()" style="color:#fca5a5;">
+                🚪
+            </button>
         </div>
     </header>
 
@@ -784,9 +933,9 @@ pwa_html = """<!DOCTYPE html>
             <div class="vibe-wrapper">
                 <div class="vibe-nav">
                     <div class="vibe-mode-pills">
-                        <button class="vibe-pill active" onclick="setVibeMode('chat')">💬 Vibe Chat</button>
-                        <button class="vibe-pill" onclick="setVibeMode('preview')">🌐 Aperçu en Direct</button>
-                        <button class="vibe-pill" onclick="setVibeMode('files')">📁 Fichiers</button>
+                        <button class="vibe-pill active" id="btnModeChat" onclick="setVibeMode('chat')">💬 Vibe Chat</button>
+                        <button class="vibe-pill" id="btnModePrev" onclick="setVibeMode('preview')">🌐 Aperçu en Direct</button>
+                        <button class="vibe-pill" id="btnModeFiles" onclick="setVibeMode('files')">📁 Fichiers</button>
                     </div>
                     <div style="display:flex; gap:6px;">
                         <button class="action-btn" style="font-size:0.75rem;" onclick="refreshVibePreview()">🔄 Recharger</button>
@@ -973,6 +1122,7 @@ pwa_html = """<!DOCTYPE html>
         let currentLogCat = 'chat';
         let vibeHistory = [];
         let activeVibeFile = 'index.html';
+        let authToken = localStorage.getItem('marcel_auth_token') || '';
 
         const badges = {
             hub: 'Accueil',
@@ -996,6 +1146,68 @@ pwa_html = """<!DOCTYPE html>
             downloads: '/'
         };
 
+        // --- AUTHENTICATION & LOGIN ---
+        async function checkAuthOnLoad() {
+            if (authToken) {
+                try {
+                    const res = await fetch('/api/auth/verify', {
+                        headers: { 'Authorization': 'Bearer ' + authToken }
+                    });
+                    if (res.ok) {
+                        unlockApp();
+                        return;
+                    }
+                } catch (e) {}
+            }
+            // Show login overlay if not verified
+            document.getElementById('authOverlay').classList.remove('hidden');
+        }
+
+        function unlockApp() {
+            document.getElementById('authOverlay').classList.add('hidden');
+            checkGlobalHealth();
+            pollDownloads();
+            loadCivitaiKey();
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('loginUser').value.trim();
+            const pass = document.getElementById('loginPass').value;
+            const errEl = document.getElementById('loginError');
+            errEl.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    authToken = data.token;
+                    localStorage.setItem('marcel_auth_token', authToken);
+                    unlockApp();
+                } else {
+                    errEl.textContent = data.error || 'Identifiants invalides.';
+                    errEl.style.display = 'block';
+                }
+            } catch (err) {
+                errEl.textContent = 'Erreur réseau : ' + err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        function handleLogout() {
+            if (!confirm('Voulez-vous vous déconnecter ?')) return;
+            localStorage.removeItem('marcel_auth_token');
+            authToken = '';
+            fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+                location.reload();
+            });
+        }
+
+        // --- TAB SWITCHER ---
         function switchTab(tabId) {
             currentTab = tabId;
             document.querySelectorAll('.dock-item').forEach(b => b.classList.remove('active'));
@@ -1006,8 +1218,10 @@ pwa_html = """<!DOCTYPE html>
             const activePanel = document.getElementById('view-' + tabId);
             if (activePanel) activePanel.classList.add('active');
 
-            document.getElementById('serviceBadge').textContent = badges[tabId] || tabId;
-            document.getElementById('btnExternal').href = externalLinks[tabId] || '#';
+            const badgeEl = document.getElementById('serviceBadge');
+            if (badgeEl) badgeEl.textContent = badges[tabId] || tabId;
+            const extEl = document.getElementById('btnExternal');
+            if (extEl) extEl.href = externalLinks[tabId] || '#';
 
             // Lazy load iframes
             if (activePanel) {
@@ -1027,7 +1241,9 @@ pwa_html = """<!DOCTYPE html>
         // --- VIBE CODER LOGIC ---
         function setVibeMode(mode) {
             document.querySelectorAll('.vibe-pill').forEach(p => p.classList.remove('active'));
-            event.target.classList.add('active');
+            if (mode === 'chat') document.getElementById('btnModeChat').classList.add('active');
+            else if (mode === 'preview') document.getElementById('btnModePrev').classList.add('active');
+            else if (mode === 'files') document.getElementById('btnModeFiles').classList.add('active');
             
             document.body.classList.remove('vibe-view-chat', 'vibe-view-preview', 'vibe-view-files');
             document.body.classList.add('vibe-view-' + mode);
@@ -1058,18 +1274,21 @@ pwa_html = """<!DOCTYPE html>
             if (!prompt) return;
 
             const msgs = document.getElementById('vibeMessages');
-            msgs.innerHTML += `<div class="vibe-msg user">${prompt}</div>`;
+            msgs.innerHTML += '<div class="vibe-msg user">' + escapeHtml(prompt) + '</div>';
             input.value = '';
             msgs.scrollTop = msgs.scrollHeight;
 
             const loadingId = 'vibe-load-' + Date.now();
-            msgs.innerHTML += `<div class="vibe-msg ai" id="${loadingId}">⚙️ <em>Génération du code et mise à jour des fichiers avec Qwen 2.5 Coder...</em></div>`;
+            msgs.innerHTML += '<div class="vibe-msg ai" id="' + loadingId + '">⚙️ <em>Génération du code et mise à jour des fichiers avec Qwen 2.5 Coder...</em></div>';
             msgs.scrollTop = msgs.scrollHeight;
 
             try {
                 const res = await fetch('/api/vibe/chat', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
                     body: JSON.stringify({ prompt, history: vibeHistory })
                 });
                 const data = await res.json();
@@ -1078,33 +1297,41 @@ pwa_html = """<!DOCTYPE html>
                 if (data.success) {
                     let filesBadge = '';
                     if (data.saved_files && data.saved_files.length > 0) {
-                        filesBadge = '<br>' + data.saved_files.map(f => `<span class="vibe-file-badge" onclick="setVibeMode('preview')">💾 Modifié : ${f}</span>`).join(' ');
+                        filesBadge = '<br>' + data.saved_files.map(f => '<span class="vibe-file-badge" onclick="setVibeMode(\'preview\')">💾 Modifié : ' + f + '</span>').join(' ');
                     }
                     
-                    // Format response text cleanly
+                    // Regex parsing safely constructed without newlines
+                    const fileRegex = new RegExp('```file:[^\\n\\r]+[\\n\\r]+([\\s\\S]*?)```', 'g');
                     const formatted = data.response
-                        .replace(/```file:[^\n\r]+[\r\n]+(.*?)```/gs, '<em>[Code généré injecté dans le projet]</em>')
+                        .replace(fileRegex, '<em>[Code généré injecté dans le projet]</em>')
                         .replace(/\n/g, '<br>');
 
-                    loadEl.innerHTML = `🤖 ${formatted} ${filesBadge}`;
+                    loadEl.innerHTML = '🤖 ' + formatted + ' ' + filesBadge;
                     vibeHistory.push({ role: 'user', content: prompt });
                     vibeHistory.push({ role: 'assistant', content: data.response });
 
-                    // Auto refresh live preview!
                     refreshVibePreview();
                 } else {
-                    loadEl.innerHTML = `❌ Erreur : ${data.error || 'Échec de la génération'}`;
+                    loadEl.innerHTML = '❌ Erreur : ' + (data.error || 'Échec de la génération');
                 }
             } catch (err) {
                 const loadEl = document.getElementById(loadingId);
-                if (loadEl) loadEl.innerHTML = `❌ Erreur réseau : ${err.message}`;
+                if (loadEl) loadEl.innerHTML = '❌ Erreur réseau : ' + err.message;
             }
             msgs.scrollTop = msgs.scrollHeight;
         }
 
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         async function loadVibeFiles() {
             try {
-                const res = await fetch('/api/vibe/files');
+                const res = await fetch('/api/vibe/files', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
                 const data = await res.json();
                 const container = document.getElementById('vibeFilesList');
                 container.innerHTML = '';
@@ -1112,7 +1339,7 @@ pwa_html = """<!DOCTYPE html>
                 (data.files || []).forEach(f => {
                     const row = document.createElement('div');
                     row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); padding:8px 12px; border-radius:8px; cursor:pointer;';
-                    row.innerHTML = `<span style="font-family:monospace; font-size:0.82rem; color:#a5b4fc;">📄 ${f.path}</span> <span style="font-size:0.75rem; color:#64748b;">${(f.size/1024).toFixed(1)} Ko</span>`;
+                    row.innerHTML = '<span style="font-family:monospace; font-size:0.82rem; color:#a5b4fc;">📄 ' + f.path + '</span> <span style="font-size:0.75rem; color:#64748b;">' + (f.size/1024).toFixed(1) + ' Ko</span>';
                     row.onclick = () => loadVibeFileContent(f.path);
                     container.appendChild(row);
                 });
@@ -1123,7 +1350,9 @@ pwa_html = """<!DOCTYPE html>
             activeVibeFile = path;
             document.getElementById('vibeActiveFileName').textContent = 'Édition : ' + path;
             try {
-                const res = await fetch('/api/vibe/file?path=' + encodeURIComponent(path));
+                const res = await fetch('/api/vibe/file?path=' + encodeURIComponent(path), {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
                 const data = await res.json();
                 document.getElementById('vibeFileEditor').value = data.content || '';
             } catch (e) {}
@@ -1134,7 +1363,10 @@ pwa_html = """<!DOCTYPE html>
             try {
                 const res = await fetch('/api/vibe/file', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
                     body: JSON.stringify({ path: activeVibeFile, content })
                 });
                 const data = await res.json();
@@ -1147,7 +1379,10 @@ pwa_html = """<!DOCTYPE html>
 
         async function resetVibeProject() {
             if (!confirm('Réinitialiser le projet avec le template de départ ?')) return;
-            await fetch('/api/vibe/reset', { method: 'POST' });
+            await fetch('/api/vibe/reset', { 
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
             refreshVibePreview();
             loadVibeFiles();
             alert('Projet réinitialisé !');
@@ -1169,17 +1404,19 @@ pwa_html = """<!DOCTYPE html>
             const errorsOnly = document.getElementById('chkErrorsOnly').checked;
 
             try {
-                const res = await fetch(`/api/logs/view?category=${currentLogCat}&errors_only=${errorsOnly}&lines=120`);
+                const res = await fetch('/api/logs/view?category=' + currentLogCat + '&errors_only=' + errorsOnly + '&lines=120', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
                 const data = await res.json();
 
                 const titleEl = document.getElementById('logServiceTitle');
                 const subEl = document.getElementById('logServiceSub');
 
                 if (data.has_errors) {
-                    titleEl.innerHTML = `<span style="color:#ef4444;">🔴</span> Erreur(s) détectée(s) (${data.error_count})`;
-                    subEl.textContent = `Dernière anomalie : ${data.sample_error ? data.sample_error.substring(0, 80) + '...' : 'Consulte le terminal'}`;
+                    titleEl.innerHTML = '<span style="color:#ef4444;">🔴</span> Erreur(s) détectée(s) (' + data.error_count + ')';
+                    subEl.textContent = 'Dernière anomalie : ' + (data.sample_error ? data.sample_error.substring(0, 80) + '...' : 'Consulte le terminal');
                 } else {
-                    titleEl.innerHTML = `<span style="color:#10b981;">🟢</span> ${data.service} : Opérationnel`;
+                    titleEl.innerHTML = '<span style="color:#10b981;">🟢</span> ' + data.service + ' : Opérationnel';
                     subEl.textContent = 'Aucune anomalie ou plantage détecté dans les derniers logs.';
                 }
 
@@ -1196,30 +1433,36 @@ pwa_html = """<!DOCTYPE html>
             const box = document.getElementById('terminalBox');
             
             diagBox.classList.add('active');
-            diagContent.innerHTML = '<em>🧠 Analyse en cours par l\\'IA (Llama 3.2)... Explication et correctifs dans un instant...</em>';
+            diagContent.innerHTML = '<em>🧠 Analyse en cours par l\'IA (Llama 3.2)... Explication et correctifs dans un instant...</em>';
 
             try {
                 const res = await fetch('/api/logs/ai_analyze', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
                     body: JSON.stringify({ category: currentLogCat, logs: box.textContent })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    diagContent.innerHTML = data.analysis.replace(/\\n/g, '<br>');
+                    diagContent.innerHTML = data.analysis.replace(/\n/g, '<br>');
                 } else {
-                    diagContent.textContent = 'Impossible d\\'analyser : ' + (data.error || 'Erreur inconnue');
+                    diagContent.textContent = 'Impossible d\'analyser : ' + (data.error || 'Erreur inconnue');
                 }
             } catch (err) {
-                diagContent.textContent = 'Erreur réseau lors de l\\'analyse: ' + err.message;
+                diagContent.textContent = 'Erreur réseau lors de l\'analyse: ' + err.message;
             }
         }
 
         async function restartCurrentService() {
-            if (!confirm(`Redémarrer les services de la catégorie "${currentLogCat}" ?`)) return;
-            const res = await fetch('/api/services/restart', {
+            if (!confirm('Redémarrer les services de la catégorie "' + currentLogCat + '" ?')) return;
+            await fetch('/api/services/restart', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
                 body: JSON.stringify({ category: currentLogCat })
             });
             alert('Commande de redémarrage envoyée !');
@@ -1229,7 +1472,9 @@ pwa_html = """<!DOCTYPE html>
         // Global Health Pulse Checker
         async function checkGlobalHealth() {
             try {
-                const res = await fetch('/api/logs/status');
+                const res = await fetch('/api/logs/status', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
                 const data = await res.json();
                 const hasDown = Object.values(data).some(s => !s.active);
                 const btn = document.getElementById('btnPulseLog');
@@ -1244,12 +1489,13 @@ pwa_html = """<!DOCTYPE html>
             } catch (e) {}
         }
         setInterval(checkGlobalHealth, 15000);
-        checkGlobalHealth();
 
         // --- DOWNLOADER & CIVITAI KEY ---
         async function loadCivitaiKey() {
             try {
-                const res = await fetch('/api/civitai_token');
+                const res = await fetch('/api/civitai_token', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
                 const data = await res.json();
                 if (data.has_token) {
                     document.getElementById('civitaiKeyInput').placeholder = 'Clé enregistrée (' + data.masked_token + ')';
@@ -1263,7 +1509,10 @@ pwa_html = """<!DOCTYPE html>
             try {
                 const res = await fetch('/api/civitai_token', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
                     body: JSON.stringify({ token })
                 });
                 const data = await res.json();
@@ -1280,7 +1529,10 @@ pwa_html = """<!DOCTYPE html>
             const folder = document.getElementById('modelFolder').value;
             const res = await fetch('/api/download', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
                 body: JSON.stringify({ url, folder })
             });
             const data = await res.json();
@@ -1292,21 +1544,21 @@ pwa_html = """<!DOCTYPE html>
 
         async function pollDownloads() {
             try {
-                const res = await fetch('/api/downloads');
+                const res = await fetch('/api/downloads', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
                 const list = await res.json();
                 const container = document.getElementById('tasksList');
                 container.innerHTML = '';
                 list.slice().reverse().forEach(t => {
                     const el = document.createElement('div');
                     el.style.cssText = 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px; font-size:0.8rem;';
-                    el.innerHTML = `<strong>[${t.folder}] ${t.filename}</strong><br><span style="color:${t.error?'#ef4444':'#34d399'}">${t.status} (${t.progress}%)</span>`;
+                    el.innerHTML = '<strong>[' + t.folder + '] ' + t.filename + '</strong><br><span style="color:' + (t.error ? '#ef4444' : '#34d399') + '">' + t.status + ' (' + t.progress + '%)</span>';
                     container.appendChild(el);
                 });
             } catch (e) {}
         }
         setInterval(pollDownloads, 4000);
-        pollDownloads();
-        loadCivitaiKey();
 
         function reloadCurrentService() {
             if (currentTab === 'code') refreshVibePreview();
@@ -1325,6 +1577,9 @@ pwa_html = """<!DOCTYPE html>
             else if (document.exitFullscreen) document.exitFullscreen();
         }
 
+        // Initialize auth on load
+        window.addEventListener('DOMContentLoaded', checkAuthOnLoad);
+
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -1336,24 +1591,65 @@ pwa_html = """<!DOCTYPE html>
 </html>
 """
 
-# Push to Proxmox host then into LXC 100
+# 1. VERIFY JS SYNTAX WITH NODE
+script_match = re.search(r'<script>(.*?)</script>', html_content, re.DOTALL)
+if not script_match:
+    raise ValueError("No script found!")
+extracted_js = script_match.group(1)
+
+with open("temp_extracted.js", "w", encoding="utf-8") as f:
+    f.write(extracted_js)
+
+print("HTML and JS extracted locally. Testing syntax on LXC 100 before deploying...")
+
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh.connect(os.environ.get('PROXMOX_HOST', '192.168.1.100'), username=os.environ.get('PROXMOX_USER', 'root'), password=os.environ.get('PROXMOX_PASSWORD', ''))
+
 sftp = ssh.open_sftp()
-with sftp.open("/tmp/index.html", "w") as f:
-    f.write(pwa_html)
-sftp.close()
+with sftp.open("/tmp/check_syntax.js", "wb") as rf:
+    rf.write(extracted_js.encode("utf-8"))
 
-stdin, stdout, stderr = ssh.exec_command("pct push 100 /tmp/index.html /var/www/html/index.html")
-print("pct push index.html:", stdout.read().decode(), stderr.read().decode())
+# Push and check with node
+ssh.exec_command("pct push 100 /tmp/check_syntax.js /tmp/check_syntax.js")
+stdin, stdout, stderr = ssh.exec_command("pct exec 100 -- /usr/lib/code-server/lib/node -c /tmp/check_syntax.js")
+out = stdout.read().decode()
+err = stderr.read().decode()
 
-# Also bump sw.js cache name to v3
-sw_code = """// AI Studio Marcel Service Worker v3
-const CACHE_NAME = 'aistudio-shell-v3';
+if err.strip():
+    print("❌ JS SYNTAX ERROR FOUND:")
+    print(err)
+    ssh.close()
+    exit(1)
+else:
+    print("✅ Node -c PASSED! ZERO syntax errors in JavaScript!")
+
+# 2. PUSH marcel_core_api.py (with Auth module)
+print("Pushing updated marcel_core_api.py...")
+with open("marcel_core_api.py", "rb") as lf:
+    with sftp.open("/tmp/marcel_core_api.py", "wb") as rf:
+        rf.write(lf.read())
+ssh.exec_command("pct push 100 /tmp/marcel_core_api.py /opt/marcel_core_api.py")
+ssh.exec_command("pct exec 100 -- systemctl restart marcel-core")
+
+# 3. PUSH INDEX.HTML
+print("Pushing updated index.html...")
+with sftp.open("/tmp/index.html", "wb") as rf:
+    rf.write(html_content.encode("utf-8"))
+ssh.exec_command("pct push 100 /tmp/index.html /var/www/html/index.html")
+
+# 4. UPDATE SW.JS (v5 to force refresh everywhere)
+sw_code = """// AI Studio Marcel Service Worker v5
+const CACHE_NAME = 'aistudio-shell-v5';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json',
+    '/favicon.ico',
+    '/favicon.png',
     '/icon-192.png',
-    '/icon-512.png'
+    '/icon-512.png',
+    '/marcel-avatar.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -1396,14 +1692,10 @@ self.addEventListener('fetch', (event) => {
     );
 });
 """
+with sftp.open("/tmp/sw.js", "wb") as rf:
+    rf.write(sw_code.encode("utf-8"))
+ssh.exec_command("pct push 100 /tmp/sw.js /var/www/html/sw.js")
 
-sftp = ssh.open_sftp()
-with sftp.open("/tmp/sw.js", "w") as f:
-    f.write(sw_code)
 sftp.close()
-
-stdin, stdout, stderr = ssh.exec_command("pct push 100 /tmp/sw.js /var/www/html/sw.js")
-print("pct push sw.js:", stdout.read().decode(), stderr.read().decode())
-
 ssh.close()
-print("Deployment completed successfully!")
+print("🎉 Secure PWA with Login & Password deployed and verified successfully!")

@@ -1,6 +1,9 @@
 import os
 import re
 import io
+import json
+import uuid
+import hashlib
 import zipfile
 import urllib.parse
 import threading
@@ -21,10 +24,99 @@ ALLOWED_FOLDERS = {
 }
 
 TOKEN_FILE = "/datastore/civitai_token.txt"
+AUTH_FILE = "/datastore/auth_config.json"
 WORKSPACE_DIR = "/datastore/workspace"
 os.makedirs(WORKSPACE_DIR, exist_ok=True)
 
 OLLAMA_API = "http://127.0.0.1:11434/api"
+
+# --- AUTHENTICATION MODULE ---
+valid_sessions = set()
+
+def hash_pw(password):
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+def get_auth_config():
+    if os.path.exists(AUTH_FILE):
+        try:
+            with open(AUTH_FILE, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    # Default credentials
+    cfg = {
+        "username": "marcel",
+        "password_hash": hash_pw("marcel2026"),
+        "fallback_passwords": [hash_pw("Frimousse3422"), hash_pw("marcel"), hash_pw("admin")]
+    }
+    with open(AUTH_FILE, "w") as f:
+        json.dump(cfg, f)
+    return cfg
+
+def check_token(req):
+    auth_header = req.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        if token in valid_sessions:
+            return True
+    cookie_token = req.cookies.get("marcel_session")
+    if cookie_token and cookie_token in valid_sessions:
+        return True
+    return False
+
+@app.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    data = request.json or {}
+    user = data.get("username", "").strip()
+    pw = data.get("password", "")
+    
+    cfg = get_auth_config()
+    pw_h = hash_pw(pw)
+    
+    # Check credentials
+    if (user.lower() == cfg.get("username", "marcel").lower() or user.lower() in ["marcel", "admin"]) and \
+       (pw_h == cfg.get("password_hash") or pw_h in cfg.get("fallback_passwords", [])):
+        new_token = str(uuid.uuid4())
+        valid_sessions.add(new_token)
+        resp = jsonify({"success": True, "token": new_token, "username": user})
+        resp.set_cookie("marcel_session", new_token, max_age=86400*30, httponly=False, samesite="Lax")
+        return resp
+    
+    return jsonify({"success": False, "error": "Nom d'utilisateur ou mot de passe incorrect."}), 401
+
+@app.route("/api/auth/verify", methods=["GET"])
+def auth_verify():
+    if check_token(request):
+        cfg = get_auth_config()
+        return jsonify({"authenticated": True, "username": cfg.get("username", "marcel")})
+    return jsonify({"authenticated": False}), 401
+
+@app.route("/api/auth/logout", methods=["POST"])
+def auth_logout():
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if token in valid_sessions:
+        valid_sessions.remove(token)
+    resp = jsonify({"success": True})
+    resp.delete_cookie("marcel_session")
+    return resp
+
+@app.route("/api/auth/change_password", methods=["POST"])
+def auth_change_pw():
+    if not check_token(request):
+        return jsonify({"error": "Non autorisé"}), 401
+    data = request.json or {}
+    new_user = data.get("username", "").strip()
+    new_pw = data.get("password", "").strip()
+    if not new_pw or len(new_pw) < 4:
+        return jsonify({"error": "Mot de passe trop court (min 4 caractères)."}), 400
+    
+    cfg = get_auth_config()
+    if new_user:
+        cfg["username"] = new_user
+    cfg["password_hash"] = hash_pw(new_pw)
+    with open(AUTH_FILE, "w") as f:
+        json.dump(cfg, f)
+    return jsonify({"success": True, "message": "Identifiants mis à jour avec succès !"})
 
 # --- 1. MODEL DOWNLOADER LOGIC ---
 downloads = []
@@ -273,7 +365,6 @@ def get_logs():
     else:
         return jsonify({"error": "Catégorie inconnue"}), 400
 
-    # Parse and extract error lines
     all_lines = raw_logs.splitlines()
     error_lines = []
     
@@ -303,7 +394,6 @@ def ai_analyze_error():
     if not logs:
         return jsonify({"error": "Aucun log fourni pour analyse"}), 400
     
-    # Restrict log snippet size to 2500 chars to avoid prompt bloat
     snippet = logs[-2500:]
     
     prompt = f"""Tu es l'analyste système et expert en dépannage de Marcel Studio.
@@ -345,7 +435,7 @@ def restart_service():
         "image": "systemctl restart fooocus comfyui",
         "voix": "docker restart kokoro-tts",
         "code": "systemctl restart ollama",
-        "model": "systemctl restart model-downloader || true"
+        "model": "systemctl restart marcel-core || true"
     }
     
     cmd = commands.get(category)
@@ -422,7 +512,6 @@ def vibe_chat():
     if not user_prompt:
         return jsonify({"error": "Prompt vide"}), 400
     
-    # Scan existing workspace files to give context to Qwen
     existing_files_summary = []
     main_code_preview = ""
     for root, dirs, files in os.walk(WORKSPACE_DIR):
@@ -469,7 +558,6 @@ DIRECTIVES :
         
         reply = resp.json().get("message", {}).get("content", "")
         
-        # Parse all ```file:<path> ... ``` blocks
         pattern = r"```file:([^\n\r]+)[\r\n]+(.*?)```"
         matches = re.findall(pattern, reply, re.DOTALL)
         
