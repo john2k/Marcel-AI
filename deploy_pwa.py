@@ -1338,6 +1338,7 @@ html_content = r"""<!DOCTYPE html>
                     <form onsubmit="handleDownload(event)">
                         <input type="url" id="modelUrl" class="dl-input" placeholder="https://civitai.com/api/download/models/... ou HuggingFace" required>
                         <select id="modelFolder" class="dl-select">
+                            <option value="auto" selected>✨ Détection Automatique Intelligente (Recommandé)</option>
                             <option value="checkpoints">Modèle Principal (Checkpoints SDXL / SD 1.5)</option>
                             <option value="loras">LoRA (Style, Visage, Personnage)</option>
                             <option value="vae">VAE (Couleurs & Rendu)</option>
@@ -2135,8 +2136,8 @@ with sftp.open("/tmp/index.html", "wb") as rf:
 ssh.exec_command("pct push 100 /tmp/index.html /var/www/html/index.html")
 
 # 4. UPDATE SW.JS (v5 to force refresh everywhere)
-sw_code = """// AI Studio Marcel Service Worker v8
-const CACHE_NAME = 'aistudio-shell-v8';
+sw_code = """// AI Studio Marcel Service Worker v9
+const CACHE_NAME = 'aistudio-shell-v9';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',

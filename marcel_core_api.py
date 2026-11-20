@@ -4,6 +4,7 @@ import io
 import json
 import time
 import uuid
+import struct
 import hashlib
 import zipfile
 import urllib.parse
@@ -131,6 +132,29 @@ def get_saved_civitai_token():
             pass
     return ""
 
+def classify_safetensors(path):
+    try:
+        with open(path, 'rb') as f:
+            header_size = struct.unpack('<Q', f.read(8))[0]
+            header = json.loads(f.read(header_size).decode('utf-8'))
+            keys = set(header.keys())
+            
+            # Check LoRA
+            if any('lora' in k.lower() for k in keys):
+                return 'loras'
+            # Check ControlNet
+            if any('control_model' in k or 'control_net' in k for k in keys):
+                return 'controlnet'
+            # Check VAE
+            if any('first_stage_model' in k or 'decoder.conv_in' in k for k in keys) and not any('diffusion_model' in k for k in keys):
+                return 'vae'
+            # Check Checkpoint
+            if any('diffusion_model' in k or 'model.diffusion_model' in k for k in keys):
+                return 'checkpoints'
+            return None
+    except:
+        return None
+
 def download_worker(url, target_dir, filename, task_id, civitai_token):
     try:
         downloads[task_id]["status"] = "Connexion au serveur..."
@@ -191,7 +215,53 @@ def download_worker(url, target_dir, filename, task_id, civitai_token):
                         if total_size > 0:
                             downloads[task_id]["progress"] = round((downloaded / total_size) * 100, 1)
             
-            downloads[task_id]["status"] = "Terminé avec succès!"
+            # --- AUTOMATIC MODEL CLASSIFIER & PLACEMENT SAFEGUARD ---
+            cat = downloads[task_id].get("folder", "auto")
+            detected_folder = None
+            if clean_filename.lower().endswith(".safetensors") and os.path.exists(out_path):
+                detected_folder = classify_safetensors(out_path)
+
+            if detected_folder:
+                # If auto requested OR user mistakenly chose checkpoints for a LoRA/VAE/ControlNet
+                if cat == "auto" or (cat == "checkpoints" and detected_folder in ["loras", "vae", "controlnet"]):
+                    correct_dir = ALLOWED_FOLDERS.get(detected_folder, target_dir)
+                    if correct_dir != target_dir:
+                        new_path = os.path.join(correct_dir, clean_filename)
+                        try:
+                            os.makedirs(correct_dir, exist_ok=True)
+                            os.rename(out_path, new_path)
+                            out_path = new_path
+                            downloads[task_id]["path"] = new_path
+                            downloads[task_id]["folder"] = detected_folder
+                        except Exception:
+                            pass
+                else:
+                    downloads[task_id]["folder"] = cat
+
+            # --- AUTOMATIC SYNC BETWEEN COMFYUI AND FOOOCUS ---
+            try:
+                final_folder = downloads[task_id].get("folder", "checkpoints")
+                if final_folder == "loras":
+                    f_lora = os.path.join("/datastore/Fooocus/models/loras", clean_filename)
+                    c_lora = os.path.join("/datastore/ComfyUI/models/loras", clean_filename)
+                    if os.path.exists(out_path):
+                        if not os.path.exists(f_lora):
+                            os.symlink(out_path, f_lora)
+                        if not os.path.exists(c_lora):
+                            os.symlink(out_path, c_lora)
+                elif final_folder == "checkpoints":
+                    f_ckpt = os.path.join("/datastore/Fooocus/models/checkpoints", clean_filename)
+                    c_ckpt = os.path.join("/datastore/ComfyUI/models/checkpoints", clean_filename)
+                    if os.path.exists(out_path):
+                        if not os.path.exists(f_ckpt):
+                            os.symlink(out_path, f_ckpt)
+                        if not os.path.exists(c_ckpt):
+                            os.symlink(out_path, c_ckpt)
+            except Exception:
+                pass
+
+            tag = f" (Détecté & rangé en {downloads[task_id]['folder'].upper()})" if detected_folder else ""
+            downloads[task_id]["status"] = f"Terminé avec succès !{tag}"
             downloads[task_id]["progress"] = 100
             downloads[task_id]["error"] = False
 
@@ -212,14 +282,17 @@ def download_worker(url, target_dir, filename, task_id, civitai_token):
 def start_download():
     data = request.json or {}
     url = data.get("url", "").strip()
-    folder = data.get("folder", "checkpoints")
+    folder = data.get("folder", "auto")
     filename = data.get("filename", "").strip()
     civitai_token = data.get("civitai_token", "").strip()
     
     if not url:
         return jsonify({"error": "URL manquante"}), 400
     
-    target_dir = ALLOWED_FOLDERS.get(folder, ALLOWED_FOLDERS["checkpoints"])
+    if folder == "auto":
+        target_dir = ALLOWED_FOLDERS["checkpoints"]
+    else:
+        target_dir = ALLOWED_FOLDERS.get(folder, ALLOWED_FOLDERS["checkpoints"])
     os.makedirs(target_dir, exist_ok=True)
     
     task_id = len(downloads)
