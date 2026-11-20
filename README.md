@@ -16,13 +16,14 @@
 
 | Composant | Rôle & Expérience | Moteur / Technologie |
 | :--- | :--- | :--- |
+| 💻 **Marcel Vibe Coder** | IDE interactif simplifié style **Antigravity** : code en direct par prompt avec aperçu temps réel | Qwen 2.5 Coder 7B + Live Preview |
+| 📊 **Analyseur de Logs & Diagnostic IA** | Détection d'erreurs en direct par catégorie (Chat, Code, Image, Voix, Modèles) avec explication et résolution par l'IA | Llama 3.2 + Fast REST API |
 | 💬 **Chat IA Multimodèle** | Interface conversationnelle style **Gemini** avec le persona déjanté québécois **Marcel-QC** | Open WebUI + Ollama (Vulkan GPU) |
-| 💻 **Code Studio IA** | IDE de développement complet dans le navigateur style **Cursor / Antigravity** | code-server + Continue.dev + Qwen 2.5 Coder 7B |
 | 🎨 **Génération d'Images** | Rendu photoréaliste SDXL simple façon **Midjourney** | Fooocus (PyTorch ROCm) |
 | 🎬 **Workflows Créatifs Avancés** | Génération nodulaire de photos et vidéos IA | ComfyUI |
 | 🎙️ **Studio Vocal / TTS** | Synthèse vocale neuronale ultra-réaliste (72 voix HD) | Kokoro Neural TTS Docker |
 | 📥 **Gestionnaire de Modèles** | Téléchargement direct sur serveur avec bypass Civitai Auth | Fast REST API + Civitai Token |
-| 📱 **PWA Mobile-First** | Application installable sur iOS/Android avec dock unifié | Nginx Reverse Proxy + Service Worker v2 |
+| 📱 **PWA Mobile-First** | Application installable sur iOS/Android avec dock unifié | Nginx Reverse Proxy + Service Worker v3 |
 
 ---
 
