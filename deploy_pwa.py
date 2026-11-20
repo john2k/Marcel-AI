@@ -26,9 +26,9 @@ html_content = r"""<!DOCTYPE html>
     <meta name="apple-mobile-web-app-title" content="Marcel Studio">
     
     <!-- Favicon & Icons -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=2">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
 
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -2136,8 +2136,8 @@ with sftp.open("/tmp/index.html", "wb") as rf:
 ssh.exec_command("pct push 100 /tmp/index.html /var/www/html/index.html")
 
 # 4. UPDATE SW.JS (v5 to force refresh everywhere)
-sw_code = """// AI Studio Marcel Service Worker v9
-const CACHE_NAME = 'aistudio-shell-v9';
+sw_code = """// AI Studio Marcel Service Worker v10
+const CACHE_NAME = 'aistudio-shell-v10';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
