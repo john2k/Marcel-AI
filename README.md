@@ -17,7 +17,7 @@
 | Composant | Rôle & Expérience | Moteur / Technologie |
 | :--- | :--- | :--- |
 | 💻 **Marcel Vibe Coder** | IDE interactif simplifié style **Antigravity** : code en direct par prompt avec aperçu temps réel | Qwen 2.5 Coder 7B + Live Preview |
-| 📊 **Analyseur de Logs & Diagnostic IA** | Détection d'erreurs en direct par catégorie (Chat, Code, Image, Voix, Modèles) avec explication et résolution par l'IA | Llama 3.2 + Fast REST API |
+| 📊 **Analyseur de Logs & Auto-Réparation IA** | Détection d'erreurs en direct par catégorie (Chat, Code, Image, Voix, Modèles) avec **résolution et autoréparation automatique par l'IA** (purge VRAM GPU, réalignement permissions, relance ciblée) | Llama 3.2 + Autonomous Agent API |
 | 💬 **Chat IA Multimodèle** | Interface conversationnelle style **Gemini** avec le persona déjanté québécois **Marcel-QC** | Open WebUI + Ollama (Vulkan GPU) |
 | 🎨 **Génération d'Images** | Rendu photoréaliste SDXL simple façon **Midjourney** | Fooocus (PyTorch ROCm) |
 | 🎬 **Workflows Créatifs Avancés** | Génération nodulaire de photos et vidéos IA | ComfyUI |

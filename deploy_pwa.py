@@ -687,6 +687,28 @@ html_content = r"""<!DOCTYPE html>
             gap: 8px;
             flex-wrap: wrap;
         }
+                .btn-ai-autofix {
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 14px rgba(236, 72, 153, 0.35);
+            transition: all 0.2s;
+        }
+        .btn-ai-autofix:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(236, 72, 153, 0.5);
+        }
+        .btn-ai-autofix:active {
+            transform: scale(0.97);
+        }
         .btn-ai-diag {
             background: linear-gradient(135deg, #059669, #10b981);
             color: #fff;
@@ -1005,7 +1027,8 @@ html_content = r"""<!DOCTYPE html>
                         <p id="logServiceSub">Aucune erreur critique détectée.</p>
                     </div>
                     <div class="logs-actions">
-                        <button class="btn-ai-diag" onclick="triggerAiDiagnostic()">🤖 Diagnostiquer l'erreur avec l'IA</button>
+                        <button class="btn-ai-autofix" id="btnAiAutofix" onclick="triggerAiAutoFix()">🪄 Réparer automatiquement avec l'IA</button>
+                        <button class="btn-ai-diag" onclick="triggerAiDiagnostic()">🤖 Diagnostiquer</button>
                         <button class="btn-svc-restart" onclick="restartCurrentService()">🔄 Redémarrer ce service</button>
                         <label style="display:flex; align-items:center; gap:5px; font-size:0.78rem; color:#94a3b8; cursor:pointer;">
                             <input type="checkbox" id="chkErrorsOnly" onchange="loadCurrentLogs()"> Erreurs seules
@@ -1427,6 +1450,63 @@ html_content = r"""<!DOCTYPE html>
             }
         }
 
+                async function triggerAiAutoFix() {
+            const diagBox = document.getElementById('aiDiagBox');
+            const diagContent = document.getElementById('aiDiagContent');
+            const box = document.getElementById('terminalBox');
+            const btn = document.getElementById('btnAiAutofix');
+
+            diagBox.classList.add('active');
+            if (btn) {
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+            }
+            diagContent.innerHTML = '<em>🪄 <strong>Autoréparation en cours...</strong><br>1. Analyse de la panne avec l\'IA...<br>2. Exécution des correctifs (purge VRAM, réalignement permissions, relance services)...<br>3. Vérification de l\'état de santé...</em>';
+
+            try {
+                const res = await fetch('/api/logs/ai_autofix', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({ category: currentLogCat, logs: box.textContent })
+                });
+                const data = await res.json();
+                if (btn) {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+
+                if (data.success) {
+                    let actionsHtml = '';
+                    if (data.actions_taken && data.actions_taken.length > 0) {
+                        actionsHtml = '<br><br><strong>🛠️ Actions appliquées automatiquement :</strong><ul style="margin-left:20px; margin-top:6px; color:#cbd5e1;">' + 
+                            data.actions_taken.map(a => '<li style="margin-bottom:3px;">' + a + '</li>').join('') + '</ul>';
+                    }
+
+                    diagContent.innerHTML = 
+                        '<div style="font-size:0.95rem; font-weight:700; color:' + (data.is_healthy ? '#34d399' : '#f59e0b') + '; margin-bottom:8px;">' +
+                            '✨ ' + data.status_text +
+                        '</div>' +
+                        '<strong>🔍 Diagnostic IA :</strong> ' + data.diagnosis + '<br>' +
+                        '<strong>💡 Explication :</strong> ' + data.explanation +
+                        actionsHtml;
+                    
+                    setTimeout(loadCurrentLogs, 2000);
+                    setTimeout(checkGlobalHealth, 2500);
+                } else {
+                    diagContent.innerHTML = '❌ Échec de l\'autoréparation : ' + (data.error || 'Erreur inconnue');
+                }
+            } catch (err) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+                diagContent.innerHTML = '❌ Erreur réseau lors de l\'autoréparation : ' + err.message;
+            }
+        }
+
         async function triggerAiDiagnostic() {
             const diagBox = document.getElementById('aiDiagBox');
             const diagContent = document.getElementById('aiDiagContent');
@@ -1640,7 +1720,7 @@ ssh.exec_command("pct push 100 /tmp/index.html /var/www/html/index.html")
 
 # 4. UPDATE SW.JS (v5 to force refresh everywhere)
 sw_code = """// AI Studio Marcel Service Worker v5
-const CACHE_NAME = 'aistudio-shell-v5';
+const CACHE_NAME = 'aistudio-shell-v6';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',

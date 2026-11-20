@@ -425,6 +425,137 @@ Réponds de manière directe, synthétique et facile à comprendre en bon franç
     except Exception as e:
         return jsonify({"error": f"Erreur de communication avec l'IA: {str(e)}"}), 500
 
+
+@app.route("/api/logs/ai_autofix", methods=["POST"])
+def ai_autofix():
+    data = request.json or {}
+    category = data.get("category", "chat").lower()
+    logs = data.get("logs", "").strip()
+    
+    # 1. Ask Ollama (llama3.2:3b) to determine diagnosis and remediation strategy
+    snippet = logs[-2500:] if logs else "Vérification et optimisation périodique du service."
+    
+    prompt = f"""Tu es l'agent autonome d'autoréparation système de Marcel AI Studio.
+Une intervention d'urgence ou une réparation automatique a été demandée sur la catégorie "{category}".
+
+Voici les logs récents ou erreurs :
+```text
+{snippet}
+```
+
+Format de réponse STRICT :
+DIAGNOSTIC: <Résume le problème en 1-2 phrases claires en français>
+ACTIONS: <Liste séparée par des virgules parmi : CLEAR_GPU_CACHE, RESTART_SERVICE, RESTART_DOCKER, FIX_PERMISSIONS, CLEAN_FAILED_DOWNLOADS, FIX_WORKSPACE_CODE>
+EXPLICATION: <Explique en bon français ce que ces actions vont régler>"""
+
+    diagnosis = "Analyse automatique du service."
+    actions_to_take = ["RESTART_SERVICE"]
+    explanation = "Redémarrage préventif et libération des ressources."
+    
+    try:
+        resp = requests.post(f"{OLLAMA_API}/generate", json={
+            "model": "llama3.2:3b",
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.2}
+        }, timeout=30)
+        
+        if resp.status_code == 200:
+            ai_text = resp.json().get("response", "")
+            diag_m = re.search(r"DIAGNOSTIC:\s*(.*?)(?=\n[A-Z]+:|\Z)", ai_text, re.DOTALL)
+            act_m = re.search(r"ACTIONS:\s*(.*?)(?=\n[A-Z]+:|\Z)", ai_text, re.DOTALL)
+            exp_m = re.search(r"EXPLICATION:\s*(.*?)(?=\n[A-Z]+:|\Z)", ai_text, re.DOTALL)
+            
+            if diag_m: diagnosis = diag_m.group(1).strip()
+            if exp_m: explanation = exp_m.group(1).strip()
+            if act_m:
+                raw_acts = act_m.group(1).upper()
+                detected = [a.strip() for a in ["CLEAR_GPU_CACHE", "RESTART_SERVICE", "RESTART_DOCKER", "FIX_PERMISSIONS", "CLEAN_FAILED_DOWNLOADS", "FIX_WORKSPACE_CODE"] if a in raw_acts]
+                if detected:
+                    actions_to_take = detected
+    except Exception as e:
+        diagnosis = f"Diagnostic hors-ligne : {str(e)}"
+
+    # Category-specific intelligent defaults
+    if category == "image" and "CLEAR_GPU_CACHE" not in actions_to_take:
+        actions_to_take.append("CLEAR_GPU_CACHE")
+    if category in ["chat", "voix"] and "RESTART_DOCKER" not in actions_to_take:
+        actions_to_take.append("RESTART_DOCKER")
+    if category == "code" and "FIX_PERMISSIONS" not in actions_to_take:
+        actions_to_take.append("FIX_PERMISSIONS")
+    if category == "model" and "CLEAN_FAILED_DOWNLOADS" not in actions_to_take:
+        actions_to_take.append("CLEAN_FAILED_DOWNLOADS")
+
+    # 2. Execute Remediation Safely
+    executed_steps = []
+    
+    if "CLEAR_GPU_CACHE" in actions_to_take or category == "image":
+        run_bash("pkill -9 -f Fooocus 2>/dev/null || true")
+        run_bash("pkill -9 -f ComfyUI 2>/dev/null || true")
+        executed_steps.append("🧹 Processus GPU zombies arrêtés & VRAM Radeon purgée")
+
+    if "FIX_PERMISSIONS" in actions_to_take or category == "code":
+        run_bash(f"chmod -R 777 {WORKSPACE_DIR} 2>/dev/null || true")
+        run_bash("chmod -R 775 /datastore/ComfyUI/models 2>/dev/null || true")
+        executed_steps.append("🔑 Permissions de lecture/écriture réalignées sur le stockage ZFS")
+
+    if "CLEAN_FAILED_DOWNLOADS" in actions_to_take or category == "model":
+        run_bash("find /datastore/ComfyUI/models -name '*.tmp' -delete 2>/dev/null || true")
+        run_bash("find /datastore/ComfyUI/models -size 0 -delete 2>/dev/null || true")
+        executed_steps.append("🗑️ Fichiers partiels .tmp et téléchargements corrompus à 0 Ko nettoyés")
+
+    if "FIX_WORKSPACE_CODE" in actions_to_take and category == "code":
+        idx_p = os.path.join(WORKSPACE_DIR, "index.html")
+        if os.path.exists(idx_p):
+            try:
+                with open(idx_p, "r", encoding="utf-8", errors="ignore") as fp:
+                    code_content = fp.read()
+                rep = requests.post(f"{OLLAMA_API}/generate", json={
+                    "model": "qwen2.5-coder:7b",
+                    "prompt": f"Répare le bug ou l'erreur de ce code HTML/JS :\n```html\n{code_content[:2000]}\n```\nErreur : {logs[-500:]}\nRenvoie UNIQUEMENT le code réparé dans ```html ... ```.",
+                    "stream": False
+                }, timeout=30)
+                if rep.status_code == 200:
+                    raw_c = rep.json().get("response", "")
+                    m = re.search(r"```(?:html)?\s*(.*?)```", raw_c, re.DOTALL)
+                    if m:
+                        with open(idx_p, "w", encoding="utf-8") as fp:
+                            fp.write(m.group(1).strip())
+                        executed_steps.append("🤖 Code HTML/JS de l'espace de travail réécrit et réparé automatiquement par Qwen Coder")
+            except Exception:
+                pass
+
+    if "RESTART_SERVICE" in actions_to_take or "RESTART_DOCKER" in actions_to_take:
+        if category == "chat":
+            run_bash("systemctl restart ollama && docker restart open-webui")
+            executed_steps.append("🔄 Service Ollama et conteneur Open WebUI redémarrés")
+        elif category == "image":
+            run_bash("systemctl restart fooocus comfyui")
+            executed_steps.append("🔄 Services Fooocus et ComfyUI relancés proprement")
+        elif category == "voix":
+            run_bash("docker restart kokoro-tts")
+            executed_steps.append("🔄 Conteneur Kokoro Neural TTS relancé")
+        elif category == "code":
+            run_bash("systemctl restart ollama")
+            executed_steps.append("🔄 Moteur Ollama Vibe Coder relancé")
+        elif category == "model":
+            run_bash("systemctl restart marcel-core || true")
+            executed_steps.append("🔄 Service de téléchargement et cache relancés")
+
+    # 3. Post-verification
+    status_summary = get_services_status().get_json().get(category, {})
+    is_healthy = status_summary.get("active", False)
+
+    return jsonify({
+        "success": True,
+        "category": category,
+        "is_healthy": is_healthy,
+        "diagnosis": diagnosis,
+        "explanation": explanation,
+        "actions_taken": executed_steps,
+        "status_text": "🟢 Service 100% opérationnel" if is_healthy else "🟡 Redémarrage en cours (quelques secondes nécessaires)"
+    })
+
 @app.route("/api/services/restart", methods=["POST"])
 def restart_service():
     data = request.json or {}
